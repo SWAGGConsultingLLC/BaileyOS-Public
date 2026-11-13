@@ -381,6 +381,7 @@ function setLiveDot(state){
 function bootLive(){
   if(!window.supabase){setTimeout(bootLive,500);return;}
   db=window.supabase.createClient(SB_URL,SB_KEY);
+  try { db.rpc('record_page_visit', { p_category: 'living_archive' }); } catch(e){}
 
   // Try age_verifications first (swaggconsulting schema)
   db.from('age_verifications').select('*',{count:'exact',head:true}).then(({count,error})=>{

@@ -381,6 +381,7 @@
   function bootArk() {
     if (!window.supabase) { setTimeout(bootArk, 200); return; }
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    try { db.rpc('record_page_visit', { p_category: 'ark_dashboard' }); } catch (e) {}
     loadStats();
     loadVerifications();
     loadEntries();
