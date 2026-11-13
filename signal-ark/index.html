@@ -571,10 +571,10 @@ a.home:hover{background:rgba(0,245,255,.12);}
       <div class="ai-agent-wrap">
         <div class="agent-selector">
           <div class="agent-title">◈ SELECT ORACLE</div>
-          <div class="agent-card selected" id="agent-claude" onclick="selectAgent('claude')" tabindex="0" role="button" aria-label="Select Claude oracle">
-            <div class="agent-indicator" id="ind-claude"></div>
+          <div class="agent-card selected" id="agent-grok" onclick="selectAgent('grok')" tabindex="0" role="button" aria-label="Select Grok oracle">
+            <div class="agent-indicator" id="ind-grok"></div>
             <div class="agent-icon">⚡</div>
-            <div class="agent-info"><h4>CLAUDE</h4><p>Anthropic · Constitutional AI</p></div>
+            <div class="agent-info"><h4>GROK</h4><p>xAI</p></div>
           </div>
           <div class="agent-card" id="agent-gemini" onclick="selectAgent('gemini')" tabindex="0" role="button" aria-label="Select Gemini oracle">
             <div class="agent-indicator" id="ind-gemini"></div>
@@ -584,13 +584,13 @@ a.home:hover{background:rgba(0,245,255,.12);}
 
           <div class="api-config-block">
             <div class="agent-title">◈ API KEY CONFIG</div>
-            <div id="claude-key-area">
+            <div id="grok-key-area">
               <div class="api-config">
-                <div class="api-key-label">CLAUDE</div>
-                <input type="password" class="api-key-input" id="claude-api-key" aria-label="Claude API key" autocomplete="new-password" placeholder="sk-ant-api03-...">
-                <button class="api-set-btn" onclick="setApiKey('claude')">SET</button>
+                <div class="api-key-label">GROK</div>
+                <input type="password" class="api-key-input" id="grok-api-key" aria-label="Grok API key" autocomplete="new-password" placeholder="xai-...">
+                <button class="api-set-btn" onclick="setApiKey('grok')">SET</button>
               </div>
-              <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,215,0,.4);letter-spacing:1px;margin-bottom:8px">Get free key: console.anthropic.com</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,215,0,.4);letter-spacing:1px;margin-bottom:8px">Get free key: <a href="https://console.x.ai" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">https://console.x.ai</a></div>
             </div>
             <div id="gemini-key-area" style="display:none">
               <div class="api-config">
@@ -608,13 +608,13 @@ a.home:hover{background:rgba(0,245,255,.12);}
 
         <div class="chat-panel">
           <div class="chat-header">
-            <div class="chat-agent-name" id="chat-agent-name">⚡ CLAUDE ORACLE</div>
+            <div class="chat-agent-name" id="chat-agent-name">⚡ GROK ORACLE</div>
             <div class="chat-status-dot"></div>
             <div class="chat-status-label" id="chat-status-label">DEMO · NO WORKER</div>
           </div>
           <div class="chat-messages" id="chat-messages" aria-live="polite">
             <div class="msg assistant">
-              <div class="msg-label">CLAUDE</div>
+              <div class="msg-label">GROK</div>
               This greeting is canned. No model is running, and no worker is watching the Ark. The lines below are the demo text, not a live answer.
             </div>
           </div>
@@ -821,8 +821,8 @@ Object.entries(CANON).forEach(([key,book]) => {
 // Older copies saved in this browser are read only for the one-time import offer.
 function readLocalBene(){ try { const d=JSON.parse(localStorage.getItem('ark_bene_v2')||'[]'); return Array.isArray(d)?d.filter(b=>b&&typeof b==='object'&&b.name!=null):[]; } catch(e){ console.warn('Saved ARK data unreadable',e); return []; } }
 let beneficiaries = [];
-let apiKeys = { claude:'', gemini:'' };
-let currentAgent = 'claude';
+let apiKeys = { grok:'', gemini:'' };
+let currentAgent = 'grok';
 let chatHistory = [];
 let currentCanon = 'ps81';
 
@@ -1209,9 +1209,9 @@ function selectAgent(agent){
   document.querySelectorAll('.agent-card').forEach(c=>c.classList.remove('selected'));
   document.getElementById('agent-'+agent).classList.add('selected');
   document.getElementById('ind-'+agent).classList.add('selected');
-  document.getElementById('claude-key-area').style.display=agent==='claude'?'block':'none';
+  document.getElementById('grok-key-area').style.display=agent==='grok'?'block':'none';
   document.getElementById('gemini-key-area').style.display=agent==='gemini'?'block':'none';
-  const names={claude:'⚡ CLAUDE ORACLE',gemini:'✦ GEMINI ORACLE'};
+  const names={grok:'⚡ GROK ORACLE',gemini:'✦ GEMINI ORACLE'};
   document.getElementById('chat-agent-name').textContent=names[agent];
   chatHistory=[];
   addChatMsg('assistant','Demo picker only. Replies stay canned until a key is typed in this tab. No worker is running.',agent.toUpperCase());
@@ -1230,7 +1230,7 @@ function setApiKey(agent){
 
 function buildSystemPrompt(){
   const bCounts={blue:beneficiaries.filter(b=>b.state==='blue').length,teal:beneficiaries.filter(b=>b.state==='teal').length,purple:beneficiaries.filter(b=>b.state==='purple').length,green:beneficiaries.filter(b=>b.state==='green').length};
-  return `You are the ${currentAgent==='claude'?'Claude':'Gemini'} Oracle embedded within SIGNAL ARK — a sacred mission tracking, discipleship, and gospel-spreading application built on the Bailey OS framework.
+  return `You are the ${currentAgent==='grok'?'Grok':'Gemini'} Oracle embedded within SIGNAL ARK — a sacred mission tracking, discipleship, and gospel-spreading application built on the Bailey OS framework.
 
 CORE CANONICAL FOUNDATION:
 - PSALM 81: The 81 harmonic anchor. "Open thy mouth wide, and I will fill it" (v.10) — the ARK creates the opening, the Spirit fills it. "With honey out of the rock should I have satisfied thee" (v.16) — the Freed state.
@@ -1276,17 +1276,17 @@ async function sendMessage(){
   document.getElementById('typing-ind').classList.add('visible');
 
   try{
-    if(currentAgent==='claude'&&apiKeys.claude){
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
+    if(currentAgent==='grok'&&apiKeys.grok){
+      const res=await fetch('https://api.x.ai/v1/chat/completions',{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKeys.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-opus-4-8',max_tokens:1000,system:buildSystemPrompt(),messages:chatHistory})
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKeys.grok},
+        body:JSON.stringify({model:'grok-4.7',max_tokens:1000,messages:[{role:'system',content:buildSystemPrompt()},...chatHistory]})
       });
       const data=await res.json();
       if(data.error) throw new Error(data.error.message);
-      const reply=data.content?.[0]?.text||'Signal unclear. Try again.';
+      const reply=data.choices?.[0]?.message?.content||'Signal unclear. Try again.';
       chatHistory.push({role:'assistant',content:reply});
-      addChatMsg('assistant',reply,'CLAUDE');
+      addChatMsg('assistant',reply,'GROK');
     } else if(currentAgent==='gemini'&&apiKeys.gemini){
       const ghist=chatHistory.slice(0,-1).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
       const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`,{
@@ -1311,11 +1311,11 @@ async function sendMessage(){
       ];
       const reply=demos[Math.floor(Math.random()*demos.length)];
       chatHistory.push({role:'assistant',content:reply});
-      addChatMsg('assistant',reply,currentAgent==='claude'?'CLAUDE':'GEMINI');
+      addChatMsg('assistant',reply,currentAgent==='grok'?'GROK':'GEMINI');
     }
   }catch(err){
     if(chatHistory.length&&chatHistory[chatHistory.length-1].role==='user') chatHistory.pop();
-    addChatMsg('assistant',`Oracle connection disrupted: ${err.message}. Check your API key. Free keys available at: Claude→ console.anthropic.com | Gemini→ aistudio.google.com. The 81 frequency holds regardless.`,'SYSTEM');
+    addChatMsg('assistant',`Oracle connection disrupted: ${err.message}. Check your API key. Free keys available at: Grok→ https://console.x.ai | Gemini→ aistudio.google.com. The 81 frequency holds regardless.`,'SYSTEM');
   }
   document.getElementById('send-btn').disabled=false;
   document.getElementById('typing-ind').classList.remove('visible');
