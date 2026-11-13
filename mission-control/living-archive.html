@@ -383,18 +383,18 @@ function bootLive(){
   db=window.supabase.createClient(SB_URL,SB_KEY);
   try { db.rpc('record_page_visit', { p_category: 'living_archive' }); } catch(e){}
 
-  // Try age_verifications first (swaggconsulting schema)
-  db.from('age_verifications').select('*',{count:'exact',head:true}).then(({count,error})=>{
+  // Live 28-day pass/decline archive
+  db.from('archive_decisions_live').select('*',{count:'exact',head:true}).then(({count,error})=>{
     if(!error){counts.total=count||0;updateCounts();}
   });
-  db.from('age_verifications').select('*',{count:'exact',head:true}).eq('verified',true).then(({count,error})=>{
+  db.from('archive_decisions_live').select('*',{count:'exact',head:true}).eq('verified',true).then(({count,error})=>{
     if(!error){counts.verified=count||0;updateCounts();}
   });
-  db.from('age_verifications').select('*',{count:'exact',head:true}).eq('verified',false).then(({count,error})=>{
+  db.from('archive_decisions_live').select('*',{count:'exact',head:true}).eq('verified',false).then(({count,error})=>{
     if(!error){counts.declined=count||0;updateCounts();}
   });
-  // Also check ark_verifications as fallback
-  db.from('ark_verifications').select('*',{count:'exact',head:true}).then(({count,error})=>{
+  // Same archive view as a fallback
+  db.from('archive_decisions_live').select('*',{count:'exact',head:true}).then(({count,error})=>{
     if(!error&&(count||0)>counts.total){counts.total=count||0;updateCounts();}
   }).catch(()=>{});
   // ark_entries count
@@ -402,22 +402,18 @@ function bootLive(){
     document.getElementById('m-entries').textContent=count||'0';
   }).catch(()=>{});
 
-  // Realtime — age_verifications
-  db.channel('public:age_verifications')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'age_verifications'},(payload)=>{
-      const r=payload.new; counts.total++;
+  // Realtime — age_gate_events (pass/decline only)
+  db.channel('public:age_gate_events')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'age_gate_events'},(payload)=>{
+      const n=payload.new||{};
+      if(n.event!=='pass'&&n.event!=='decline') return;
+      const r={id:n.id,verified:n.event==='pass',verified_at:n.created_at,source:'age-gate',event:n.event};
+      counts.total++;
       if(r.verified){counts.verified++;eventQueue.push('verified');playPulse();}
       else{counts.declined++;eventQueue.push('declined');playDecline();}
       updateCounts();flashEvent(r);
       if(adminOpen&&activeTab==='agv'){allRecords.agv.unshift(r);renderTable();setTimeout(()=>{const f=document.querySelector('.rec-row');if(f)f.classList.add('nf');},50);}
     }).subscribe(s=>setLiveDot(s==='SUBSCRIBED'?'live':'connect'));
-
-  // Realtime — ark_verifications (fallback)
-  db.channel('public:ark_verifications')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'ark_verifications'},(payload)=>{
-      const r=payload.new; const v=r.boolean_decision;
-      if(counts.total===0){counts.total++;if(v)counts.verified++;else counts.declined++;updateCounts();flashEvent({...r,verified:v,source:r.content_category||'ark'});}
-    }).subscribe();
 }
 document.addEventListener('DOMContentLoaded',bootLive);
 
@@ -526,11 +522,11 @@ async function loadRecords(){
   list.innerHTML='<div class="panel-loading">◌ FETCHING…</div>';
   try{
     if(activeTab==='agv'){
-      let{data,error}=await db.from('age_verifications').select('*').order('verified_at',{ascending:false}).limit(500);
+      let{data,error}=await db.from('archive_decisions_live').select('*').order('verified_at',{ascending:false}).limit(500);
       if(error||!data?.length){
-        // fallback to ark_verifications
-        const fb=await db.from('ark_verifications').select('*').order('created_at',{ascending:false}).limit(500);
-        if(!fb.error) data=(fb.data||[]).map(r=>({...r,verified:r.boolean_decision,verified_at:r.created_at,source:r.content_category||'bailey-oasis'}));
+        // fallback to the same live archive view
+        const fb=await db.from('archive_decisions_live').select('*').order('verified_at',{ascending:false}).limit(500);
+        if(!fb.error) data=(fb.data||[]).map(r=>({...r,verified:r.verified===true||r.boolean_decision===true||r.event==='pass',verified_at:r.verified_at||r.created_at,source:r.source||r.content_category||'age-gate'}));
       }
       allRecords.agv=data||[];
     } else {

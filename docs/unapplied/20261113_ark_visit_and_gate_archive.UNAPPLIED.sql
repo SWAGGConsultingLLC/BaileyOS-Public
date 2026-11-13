@@ -313,6 +313,72 @@ begin
 end;
 $cron$;
 
+
+-- ---------------------------------------------------------------------------
+-- 3. Views and policies so the Ark screens can read the archive
+--    without querying age_verifications.
+-- ---------------------------------------------------------------------------
+
+-- Public may read only zero-proof pass/decline rows from the last 28 days.
+-- This also lets Realtime deliver those inserts to the pages.
+drop policy if exists anon_select_age_gate_pass_decline_live on public.age_gate_events;
+create policy anon_select_age_gate_pass_decline_live
+  on public.age_gate_events
+  for select
+  to anon, authenticated
+  using (
+    event = any (array['pass'::text, 'decline'::text])
+    and created_at >= now() - interval '28 days'
+  );
+
+-- Live 28-day decision list, shaped like the columns the pages already read
+-- (id, verified, verified_at, source, event). security_invoker so it respects
+-- the policy above: no older rows, and no other event types.
+create or replace view public.archive_decisions_live
+with (security_invoker = true) as
+select
+  id,
+  (event = 'pass') as verified,
+  created_at as verified_at,
+  'age-gate'::text as source,
+  event
+from public.age_gate_events
+where event = any (array['pass'::text, 'decline'::text])
+  and created_at >= now() - interval '28 days';
+
+comment on view public.archive_decisions_live is
+  'Public 28-day zero-proof pass/decline archive for the Ark screens. No ip, device, or name. Lasting totals stay in age_gate_event_totals (signed-in only).';
+
+grant select on public.archive_decisions_live to anon, authenticated;
+
+-- Lasting pass/decline totals, signed-in only. The live pages have no sign-in
+-- today, so they use archive_decisions_live (28 days) for everyone.
+create or replace view public.archive_decision_totals
+with (security_invoker = true) as
+select event, total
+  from public.age_gate_event_totals
+ where event = any (array['pass'::text, 'decline'::text]);
+
+comment on view public.archive_decision_totals is
+  'Permanent pass/decline totals. Signed-in select only. Not rolled back when raw rows purge at 28 days.';
+
+grant select on public.archive_decision_totals to authenticated;
+revoke all on public.archive_decision_totals from anon, public;
+
+-- Realtime for pass/decline inserts. age_gate_events is not in the publication yet.
+do $pub$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = 'age_gate_events'
+  ) then
+    execute 'alter publication supabase_realtime add table public.age_gate_events';
+  end if;
+end;
+$pub$;
+
 -- Optional, not enabled: backfill last-28-day yes/no assertions into the
 -- zero-proof archive. Uncomment only if Brian also wants recent history
 -- copied (category + timestamp only; no identity fields).
