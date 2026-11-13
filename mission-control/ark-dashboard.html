@@ -251,12 +251,12 @@
 
   async function loadStats() {
     try {
-      var total = await countExact('age_verifications');
-      var fallback = await countExact('ark_verifications');
+      var total = await countExact('archive_decisions_live');
+      var fallback = await countExact('archive_decisions_live');
       if (total === null || (fallback !== null && fallback > total)) total = fallback || 0;
-      var verified = await countExact('age_verifications', function (q) { return q.eq('verified', true); });
+      var verified = await countExact('archive_decisions_live', function (q) { return q.eq('verified', true); });
       if (verified === null) {
-        verified = await countExact('ark_verifications', function (q) { return q.eq('boolean_decision', true); }) || 0;
+        verified = await countExact('archive_decisions_live', function (q) { return q.eq('verified', true); }) || 0;
       }
       var entries = await countExact('ark_entries');
       var deployed = await countExact('ark_entries', function (q) { return q.eq('tag', 'deploy'); });
@@ -275,7 +275,7 @@
   function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
   function normalizeVerification(r) {
     return {
-      verified: r.verified === true || r.boolean_decision === true,
+      verified: r.verified === true || r.boolean_decision === true || r.event === 'pass',
       verified_at: r.verified_at || r.created_at,
       source: r.source || r.content_category || ''
     };
@@ -301,10 +301,10 @@
   async function loadVerifications() {
     var wrap = document.getElementById('verif-log');
     try {
-      var primary = await db.from('age_verifications').select('*').order('verified_at', { ascending: false }).limit(20);
+      var primary = await db.from('archive_decisions_live').select('*').order('verified_at', { ascending: false }).limit(20);
       var rows = (!primary.error && primary.data && primary.data.length) ? primary.data : null;
       if (!rows) {
-        var fb = await db.from('ark_verifications').select('*').order('created_at', { ascending: false }).limit(20);
+        var fb = await db.from('archive_decisions_live').select('*').order('verified_at', { ascending: false }).limit(20);
         rows = fb.data || [];
       }
       renderVerifRows(rows);
@@ -342,14 +342,10 @@
 
   // ── Realtime: same combined channels as Signal Finder ───────────────────────
   function subscribeRealtime() {
-    db.channel('public:age_verifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'age_verifications' }, function (payload) {
-        prependVerification(payload.new);
-        loadStats();
-      })
-      .subscribe();
-    db.channel('public:ark_verifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ark_verifications' }, function (payload) {
+    db.channel('public:age_gate_events')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'age_gate_events' }, function (payload) {
+        var ev = payload.new && payload.new.event;
+        if (ev !== 'pass' && ev !== 'decline') return;
         prependVerification(payload.new);
         loadStats();
       })
@@ -381,6 +377,7 @@
   function bootArk() {
     if (!window.supabase) { setTimeout(bootArk, 200); return; }
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    try { db.rpc('record_page_visit', { p_category: 'ark_dashboard' }); } catch (e) {}
     loadStats();
     loadVerifications();
     loadEntries();

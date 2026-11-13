@@ -1373,6 +1373,7 @@ for(let i=0;i<70;i++){const s=document.createElement('div');s.className='star';s
 renderAll();
 setSecureVisible(false);
 if(sb){
+  try { sb.rpc('record_page_visit', { p_category: 'signal_ark' }); } catch(e){}
   sb.auth.getSession().then(({data})=>applySession(data.session)).catch(()=>applySession(null));
   sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'&&authUser) applySession(null); });
 } else { setAuthMsg('Secure storage could not load (offline?). Beneficiary data is unavailable.'); }
